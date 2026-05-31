@@ -42,6 +42,25 @@ export default function App() {
     }
   }
 
+  const frictionCounts = report
+    ? (() => {
+        const counts = { critical: 0, high: 0, medium: 0, low: 0 };
+        for (const s of report.user_story_timeline) {
+          const hasFriction = s.friction_point && s.friction_point.toLowerCase() !== "none";
+          if (hasFriction) counts[s.friction_severity]++;
+        }
+        return counts;
+      })()
+    : null;
+
+  const a11yCounts = report
+    ? (() => {
+        const counts = { critical: 0, high: 0, medium: 0, low: 0 };
+        for (const a of report.accessibility_issues) counts[a.severity]++;
+        return counts;
+      })()
+    : null;
+
   return (
     <div className="app">
       <header className="header">
@@ -69,7 +88,7 @@ export default function App() {
           </div>
         )}
 
-        {report && (
+        {report && frictionCounts && a11yCounts && (
           <div className="report">
             <div className="report-header">
               <div>
@@ -90,22 +109,48 @@ export default function App() {
               <ScoreBadge score={report.summary.overall_ux_score} />
             </div>
 
-            <div className="summary-cards">
-              <div className="summary-card critical">
-                <span className="count">{report.summary.critical_issues}</span>
-                <span className="label">Critical</span>
+            <div className="counts-section">
+              <div className="counts-group">
+                <span className="counts-label">UX Friction</span>
+                <div className="summary-cards">
+                  <div className="summary-card critical">
+                    <span className="count">{frictionCounts.critical}</span>
+                    <span className="label">Critical</span>
+                  </div>
+                  <div className="summary-card high">
+                    <span className="count">{frictionCounts.high}</span>
+                    <span className="label">High</span>
+                  </div>
+                  <div className="summary-card medium">
+                    <span className="count">{frictionCounts.medium}</span>
+                    <span className="label">Medium</span>
+                  </div>
+                  <div className="summary-card low">
+                    <span className="count">{frictionCounts.low}</span>
+                    <span className="label">Low</span>
+                  </div>
+                </div>
               </div>
-              <div className="summary-card high">
-                <span className="count">{report.summary.high_issues}</span>
-                <span className="label">High</span>
-              </div>
-              <div className="summary-card medium">
-                <span className="count">{report.summary.medium_issues}</span>
-                <span className="label">Medium</span>
-              </div>
-              <div className="summary-card low">
-                <span className="count">{report.summary.low_issues}</span>
-                <span className="label">Low</span>
+              <div className="counts-group">
+                <span className="counts-label">Accessibility</span>
+                <div className="summary-cards">
+                  <div className="summary-card critical">
+                    <span className="count">{a11yCounts.critical}</span>
+                    <span className="label">Critical</span>
+                  </div>
+                  <div className="summary-card high">
+                    <span className="count">{a11yCounts.high}</span>
+                    <span className="label">High</span>
+                  </div>
+                  <div className="summary-card medium">
+                    <span className="count">{a11yCounts.medium}</span>
+                    <span className="label">Medium</span>
+                  </div>
+                  <div className="summary-card low">
+                    <span className="count">{a11yCounts.low}</span>
+                    <span className="label">Low</span>
+                  </div>
+                </div>
               </div>
             </div>
 
