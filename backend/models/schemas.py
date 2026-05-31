@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, HttpUrl, field_validator
+from pydantic import BaseModel, field_validator
 
 
 class FrictionSeverity(str, Enum):
@@ -33,7 +33,7 @@ class AccessibilityIssue(BaseModel):
 
 
 class AuditSummary(BaseModel):
-    overall_ux_score: int  # 0–100
+    overall_ux_score: int
     critical_issues: int
     high_issues: int
     medium_issues: int
@@ -51,13 +51,14 @@ class CoverageGap(BaseModel):
 class AuditReport(BaseModel):
     audit_id: str
     source_url: Optional[str] = None
-    source_type: str  # "url" | "image"
+    source_type: str                    # "url" | "image"
     page_title: Optional[str] = None
     created_at: datetime
     summary: AuditSummary
     user_story_timeline: list[UserStoryStep]
     accessibility_issues: list[AccessibilityIssue]
     coverage_gaps: list[CoverageGap] = []
+    pages_crawled: int = 1
     dom_element_count: Optional[int] = None
     screenshot_captured: bool = False
 

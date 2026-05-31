@@ -22,9 +22,10 @@ from ..models.schemas import (
 _SYSTEM_PROMPT = """\
 You are an expert UX researcher and accessibility auditor specializing in cognitive load analysis and Agile user story writing.
 
-You will receive:
-1. A screenshot of a webpage (or uploaded UI image)
-2. A structured DOM summary (headings, buttons, inputs, links, forms, ARIA landmarks, alerts)
+You will receive one or more pages from a website, each labelled with its URL and how the user arrived there.
+Each page includes a DOM summary and a screenshot. Together they represent the user's journey through the product.
+
+Analyse ALL pages as a connected experience — trace friction across page transitions, not just within individual pages.
 
 Your task is to produce a comprehensive usability audit formatted as a strict JSON object matching the schema below.
 
@@ -235,35 +236,44 @@ def _parse_audit(
 
 
 async def analyze(
-    screenshot_b64: str,
-    dom: Optional[dict],
+    pages: list[dict],
     persona_hint: Optional[str],
     project_description: Optional[str],
     model: str,
     client: AsyncOpenAI,
 ) -> tuple[AuditSummary, list[UserStoryStep], list[AccessibilityIssue], list[CoverageGap]]:
+    """3-pass self-critique audit over one or more captured pages."""
 
-    image_block = {
-        "type": "image_url",
-        "image_url": {"url": f"data:image/png;base64,{screenshot_b64}", "detail": "high"},
-    }
-
-    # Build the user content block (DOM text + screenshot)
+    total = len(pages)
     user_content: list[dict] = []
-    if dom:
-        dom_text = _dom_to_text(dom, project_description)
-        if persona_hint:
-            dom_text = f"Audit persona hint: {persona_hint}\n\n" + dom_text
-        user_content.append({"type": "text", "text": dom_text})
-    elif project_description:
-        # Image-only path: still inject the project description as a text block
-        user_content.append({"type": "text", "text": (
+
+    # Optional preamble
+    preamble_parts = []
+    if persona_hint:
+        preamble_parts.append(f"Audit persona hint: {persona_hint}")
+    if project_description:
+        preamble_parts.append(
             "## Project description (provided by the developer)\n"
             + project_description.strip()
             + "\n\nUse cases explicitly named above must be evaluated for UI coverage. "
             "Additional use cases inferred from the UI should also be evaluated."
-        )})
-    user_content.append(image_block)
+        )
+    if preamble_parts:
+        user_content.append({"type": "text", "text": "\n\n".join(preamble_parts)})
+
+    # One text + image block per page
+    for i, page in enumerate(pages, 1):
+        dom = page.get("dom")
+        label = f"## Page {i} of {total} — {page.get('trigger', 'Page')} ({page.get('url') or 'uploaded image'})"
+        dom_text = label + "\n\n" + (_dom_to_text(dom) if dom else "(no DOM — image upload)")
+        user_content.append({"type": "text", "text": dom_text})
+        user_content.append({
+            "type": "image_url",
+            "image_url": {
+                "url": f"data:image/png;base64,{page['screenshot_b64']}",
+                "detail": "high" if i == 1 else "low",
+            },
+        })
 
     # ------------------------------------------------------------------
     # Pass 1 — Initial audit
@@ -311,7 +321,13 @@ async def analyze(
                     "role": "user",
                     "content": [
                         {"type": "text", "text": f"Original audit:\n{raw_audit}\n\nFlagged issues to fix:\n{issues_text}"},
-                        image_block,
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/png;base64,{pages[0]['screenshot_b64']}",
+                                "detail": "low",
+                            },
+                        },
                     ],
                 },
             ],

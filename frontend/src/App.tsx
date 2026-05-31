@@ -79,7 +79,7 @@ export default function App() {
         {loading && (
           <div className="loading-state">
             <div className="spinner" />
-            <p>Capturing page and running analysis…</p>
+            <p>Crawling pages and running analysis… this may take 30–60 s</p>
           </div>
         )}
 
@@ -102,6 +102,7 @@ export default function App() {
                   </a>
                 )}
                 <p className="report-meta">
+                  {report.pages_crawled > 1 && `${report.pages_crawled} pages crawled · `}
                   {report.dom_element_count != null && `${report.dom_element_count} DOM elements · `}
                   {report.user_story_timeline.length} story steps ·{" "}
                   {report.accessibility_issues.length} accessibility issues

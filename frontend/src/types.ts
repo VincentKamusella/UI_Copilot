@@ -44,6 +44,7 @@ export interface AuditReport {
   user_story_timeline: UserStoryStep[];
   accessibility_issues: AccessibilityIssue[];
   coverage_gaps: CoverageGap[];
+  pages_crawled: number;
   dom_element_count: number | null;
   screenshot_captured: boolean;
 }
