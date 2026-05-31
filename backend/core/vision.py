@@ -83,10 +83,12 @@ Severity rules for coverage gaps:
 
 ## Rules
 - Generate 5–10 user story steps covering the realistic first-time user journey from landing to goal completion.
-- Base steps on what is visually present in the screenshot AND the DOM data.
+- Base steps ONLY on what is visually present in the screenshot AND confirmed by the DOM data. Do not infer or assume.
 - Be specific: name actual buttons, headings, form fields you see.
-- Friction points must name the precise UI element or pattern causing friction.
+- Friction points must name the precise UI element or pattern causing friction AND must be evidenced by what you see.
 - UX recommendations must be actionable (not generic advice).
+- A well-designed website will have many smooth steps — this is a valid outcome. Do NOT invent friction to fill the report.
+- For accessibility issues: only report an issue if it is clearly evidenced. The DOM data marks each input with [LABEL: "..." ✓ present] or [LABEL: ✗ MISSING]. Treat this as ground truth — do NOT flag a label as missing if the DOM says it is present, even if it is hard to see in the screenshot (low-contrast labels are a styling issue, not a structural accessibility issue).
 - Return ONLY the JSON object — no markdown fences, no commentary.
 """
 
@@ -104,6 +106,7 @@ Carefully check for the following quality issues:
 3. GENERIC_RECOMMENDATION — ux_recommendation is non-actionable (e.g. "improve the design", "make it clearer") with no concrete change specified
 4. DUPLICATE_ISSUE — the same specific problem appears in both user_story_timeline and accessibility_issues
 5. SCORE_MISMATCH — overall_ux_score is inconsistent with the severity distribution (e.g. score of 90 but multiple critical issues)
+6. FALSE_POSITIVE — a friction point or accessibility issue is reported but contradicted by the DOM data (e.g. a label is flagged as missing but the DOM shows aria-label, aria-labelledby, or a wrapping <label>; or an issue is stated as fact without observable evidence)
 
 Return ONLY this JSON — no commentary:
 {
@@ -163,9 +166,18 @@ def _dom_to_text(dom_dict: dict, project_description: Optional[str] = None) -> s
         "",
         "Buttons: " + ", ".join(f'"{b}"' for b in dom_dict.get("buttons", [])),
         "",
-        "Inputs:",
+        "Inputs (DOM-verified label status is authoritative — do not override with visual inference):",
         *[
-            f"  • type={i.get('type')} name={i.get('name')} label={i.get('label')} placeholder={i.get('placeholder')}"
+            "  • type={type} name={name} placeholder={ph} [LABEL: {label_status}]".format(
+                type=i.get("type", ""),
+                name=i.get("name", ""),
+                ph=i.get("placeholder", "") or "(none)",
+                label_status=(
+                    f'"{i["label"]}" ✓ present'
+                    if i.get("label")
+                    else "✗ MISSING — no <label>, aria-label, or aria-labelledby found"
+                ),
+            )
             for i in dom_dict.get("inputs", [])
         ],
         "",

@@ -124,12 +124,25 @@ async def _extract_dom(page: Page) -> DOMSummary:
         () => Array.from(document.querySelectorAll('input, textarea, select'))
                   .slice(0, 20)
                   .map(el => {
-                      const label = document.querySelector(`label[for="${el.id}"]`);
+                      // 1. explicit <label for=id>
+                      let label = el.id ? document.querySelector(`label[for="${el.id}"]`) : null;
+                      // 2. wrapping <label>
+                      if (!label) label = el.closest('label');
+                      // 3. aria-labelledby reference
+                      let labelText = label?.innerText?.trim()
+                          || el.getAttribute('aria-label')
+                          || '';
+                      if (!labelText) {
+                          const lbId = el.getAttribute('aria-labelledby');
+                          if (lbId) {
+                              labelText = (document.getElementById(lbId)?.innerText || '').trim();
+                          }
+                      }
                       return {
                           type: el.type || el.tagName.toLowerCase(),
                           name: el.name || '',
                           placeholder: el.placeholder || '',
-                          label: label?.innerText?.trim() || el.getAttribute('aria-label') || ''
+                          label: labelText
                       };
                   })
     """)
