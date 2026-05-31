@@ -11,11 +11,6 @@ from ..models.schemas import AuditResponse, AuditURLRequest
 router = APIRouter(prefix="/api", tags=["audit"])
 
 
-# ---------------------------------------------------------------------------
-# Routes
-# ---------------------------------------------------------------------------
-
-
 @router.get("/health")
 async def health():
     return {"status": "ok"}
@@ -32,6 +27,7 @@ async def audit_url(body: AuditURLRequest, request: Request):
             openai_client=client,
             model=model,
             persona_hint=body.persona_hint,
+            project_description=body.project_description,
         )
         return AuditResponse(success=True, report=report)
     except Exception as exc:
@@ -46,6 +42,7 @@ async def audit_image(
     request: Request,
     file: UploadFile = File(..., description="PNG, JPEG, or WebP screenshot"),
     persona_hint: str = Form(default="", description="Optional persona context"),
+    project_description: str = Form(default="", description="Optional project description"),
 ):
     if file.content_type not in {"image/png", "image/jpeg", "image/webp"}:
         raise HTTPException(
@@ -54,7 +51,7 @@ async def audit_image(
         )
 
     image_bytes = await file.read()
-    if len(image_bytes) > 10 * 1024 * 1024:  # 10 MB guard
+    if len(image_bytes) > 10 * 1024 * 1024:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail="Image must be under 10 MB.",
@@ -69,6 +66,7 @@ async def audit_image(
             openai_client=client,
             model=model,
             persona_hint=persona_hint or None,
+            project_description=project_description or None,
         )
         return AuditResponse(success=True, report=report)
     except Exception as exc:

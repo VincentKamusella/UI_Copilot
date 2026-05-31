@@ -28,6 +28,12 @@ export interface AuditSummary {
   persona_description: string;
 }
 
+export interface CoverageGap {
+  use_case: string;
+  finding: string;
+  severity: FrictionSeverity;
+}
+
 export interface AuditReport {
   audit_id: string;
   source_url: string | null;
@@ -37,6 +43,7 @@ export interface AuditReport {
   summary: AuditSummary;
   user_story_timeline: UserStoryStep[];
   accessibility_issues: AccessibilityIssue[];
+  coverage_gaps: CoverageGap[];
   dom_element_count: number | null;
   screenshot_captured: boolean;
 }

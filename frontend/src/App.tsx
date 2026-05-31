@@ -2,6 +2,7 @@ import { useState } from "react";
 import { auditImage, auditUrl } from "./api";
 import A11yIssues from "./components/A11yIssues";
 import AuditForm from "./components/AuditForm";
+import CoverageGaps from "./components/CoverageGaps";
 import ScoreBadge from "./components/ScoreBadge";
 import Timeline from "./components/Timeline";
 import type { AuditReport } from "./types";
@@ -12,12 +13,12 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<AuditReport | null>(null);
 
-  async function handleUrlAudit(url: string, persona?: string) {
+  async function handleUrlAudit(url: string, persona?: string, projectDescription?: string) {
     setLoading(true);
     setError(null);
     setReport(null);
     try {
-      const res = await auditUrl(url, persona);
+      const res = await auditUrl(url, persona, projectDescription);
       if (!res.success || !res.report) throw new Error(res.error ?? "Audit failed");
       setReport(res.report);
     } catch (e) {
@@ -27,12 +28,12 @@ export default function App() {
     }
   }
 
-  async function handleImageAudit(file: File, persona?: string) {
+  async function handleImageAudit(file: File, persona?: string, projectDescription?: string) {
     setLoading(true);
     setError(null);
     setReport(null);
     try {
-      const res = await auditImage(file, persona);
+      const res = await auditImage(file, persona, projectDescription);
       if (!res.success || !res.report) throw new Error(res.error ?? "Audit failed");
       setReport(res.report);
     } catch (e) {
@@ -166,6 +167,7 @@ export default function App() {
             </div>
 
             <Timeline steps={report.user_story_timeline} />
+            <CoverageGaps gaps={report.coverage_gaps} />
             <A11yIssues issues={report.accessibility_issues} />
           </div>
         )}

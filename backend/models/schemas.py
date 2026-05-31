@@ -42,6 +42,12 @@ class AuditSummary(BaseModel):
     persona_description: str
 
 
+class CoverageGap(BaseModel):
+    use_case: str
+    finding: str
+    severity: FrictionSeverity
+
+
 class AuditReport(BaseModel):
     audit_id: str
     source_url: Optional[str] = None
@@ -51,6 +57,7 @@ class AuditReport(BaseModel):
     summary: AuditSummary
     user_story_timeline: list[UserStoryStep]
     accessibility_issues: list[AccessibilityIssue]
+    coverage_gaps: list[CoverageGap] = []
     dom_element_count: Optional[int] = None
     screenshot_captured: bool = False
 
@@ -61,6 +68,7 @@ class AuditReport(BaseModel):
 class AuditURLRequest(BaseModel):
     url: str
     persona_hint: Optional[str] = None
+    project_description: Optional[str] = None
 
     @field_validator("url")
     @classmethod

@@ -19,14 +19,16 @@ async def run_url_audit(
     openai_client: AsyncOpenAI,
     model: str,
     persona_hint: Optional[str] = None,
+    project_description: Optional[str] = None,
 ) -> AuditReport:
     capture: BrowserCapture = await capture_url(url)
     dom_dict = asdict(capture.dom)
 
-    summary, steps, a11y = await analyze(
+    summary, steps, a11y, coverage_gaps = await analyze(
         screenshot_b64=capture.screenshot_b64,
         dom=dom_dict,
         persona_hint=persona_hint,
+        project_description=project_description,
         model=model,
         client=openai_client,
     )
@@ -40,6 +42,7 @@ async def run_url_audit(
         summary=summary,
         user_story_timeline=steps,
         accessibility_issues=a11y,
+        coverage_gaps=coverage_gaps,
         dom_element_count=capture.dom.total_elements,
         screenshot_captured=True,
     )
@@ -50,13 +53,15 @@ async def run_image_audit(
     openai_client: AsyncOpenAI,
     model: str,
     persona_hint: Optional[str] = None,
+    project_description: Optional[str] = None,
 ) -> AuditReport:
     screenshot_b64 = capture_image_bytes(image_bytes)
 
-    summary, steps, a11y = await analyze(
+    summary, steps, a11y, coverage_gaps = await analyze(
         screenshot_b64=screenshot_b64,
-        dom=None,  # no DOM available for uploaded images
+        dom=None,
         persona_hint=persona_hint,
+        project_description=project_description,
         model=model,
         client=openai_client,
     )
@@ -70,6 +75,7 @@ async def run_image_audit(
         summary=summary,
         user_story_timeline=steps,
         accessibility_issues=a11y,
+        coverage_gaps=coverage_gaps,
         dom_element_count=None,
         screenshot_captured=True,
     )

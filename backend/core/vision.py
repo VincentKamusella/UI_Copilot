@@ -10,6 +10,7 @@ from openai import AsyncOpenAI
 from ..models.schemas import (
     AccessibilityIssue,
     AuditSummary,
+    CoverageGap,
     FrictionSeverity,
     UserStoryStep,
 )
@@ -60,6 +61,24 @@ Your task is to produce a comprehensive usability audit formatted as a strict JS
     }
   ]
 }
+
+## Coverage gap analysis
+
+Always include a "coverage_gaps" array. Evaluate whether the UI surfaces all the use cases the product appears to support.
+
+"coverage_gaps": [
+  {
+    "use_case": "<feature or user flow>",
+    "finding": "<specific observation — what is missing, hidden, or unclear in the UI>",
+    "severity": "<low|medium|high|critical>"
+  }
+]
+
+Severity rules for coverage gaps:
+- Use cases explicitly named in the project_description that are absent from the UI → high or critical
+- Use cases explicitly named in the project_description that are present but hard to find → medium
+- Use cases you infer from the UI context (not named in the description) that appear incomplete → low or medium
+- If nothing is missing, return: "coverage_gaps": []
 
 ## Rules
 - Generate 5–10 user story steps covering the realistic first-time user journey from landing to goal completion.
@@ -119,8 +138,18 @@ Return ONLY the corrected JSON — no markdown fences, no commentary.
 # ---------------------------------------------------------------------------
 
 
-def _dom_to_text(dom_dict: dict) -> str:
-    lines = [
+def _dom_to_text(dom_dict: dict, project_description: Optional[str] = None) -> str:
+    lines = []
+    if project_description:
+        lines += [
+            "## Project description (provided by the developer)",
+            project_description.strip(),
+            "",
+            "Use cases explicitly named above must be evaluated for UI coverage.",
+            "Additional use cases inferred from the UI should also be evaluated.",
+            "",
+        ]
+    lines += [
         f"Page title: {dom_dict.get('title', '')}",
         f"Meta description: {dom_dict.get('meta_description', '')}",
         f"Total elements: {dom_dict.get('total_elements', '?')}",
@@ -154,7 +183,9 @@ def _dom_to_text(dom_dict: dict) -> str:
     return "\n".join(lines)
 
 
-def _parse_audit(data: dict) -> tuple[AuditSummary, list[UserStoryStep], list[AccessibilityIssue]]:
+def _parse_audit(
+    data: dict,
+) -> tuple[AuditSummary, list[UserStoryStep], list[AccessibilityIssue], list[CoverageGap]]:
     summary_data = data.get("summary", {})
     summary = AuditSummary(
         overall_ux_score=int(summary_data.get("overall_ux_score", 50)),
@@ -187,7 +218,15 @@ def _parse_audit(data: dict) -> tuple[AuditSummary, list[UserStoryStep], list[Ac
         )
         for a in data.get("accessibility_issues", [])
     ]
-    return summary, steps, accessibility
+    coverage_gaps = [
+        CoverageGap(
+            use_case=g["use_case"],
+            finding=g["finding"],
+            severity=FrictionSeverity(g.get("severity", "low")),
+        )
+        for g in data.get("coverage_gaps", [])
+    ]
+    return summary, steps, accessibility, coverage_gaps
 
 
 # ---------------------------------------------------------------------------
@@ -199,9 +238,10 @@ async def analyze(
     screenshot_b64: str,
     dom: Optional[dict],
     persona_hint: Optional[str],
+    project_description: Optional[str],
     model: str,
     client: AsyncOpenAI,
-) -> tuple[AuditSummary, list[UserStoryStep], list[AccessibilityIssue]]:
+) -> tuple[AuditSummary, list[UserStoryStep], list[AccessibilityIssue], list[CoverageGap]]:
 
     image_block = {
         "type": "image_url",
@@ -211,10 +251,18 @@ async def analyze(
     # Build the user content block (DOM text + screenshot)
     user_content: list[dict] = []
     if dom:
-        dom_text = _dom_to_text(dom)
+        dom_text = _dom_to_text(dom, project_description)
         if persona_hint:
             dom_text = f"Audit persona hint: {persona_hint}\n\n" + dom_text
         user_content.append({"type": "text", "text": dom_text})
+    elif project_description:
+        # Image-only path: still inject the project description as a text block
+        user_content.append({"type": "text", "text": (
+            "## Project description (provided by the developer)\n"
+            + project_description.strip()
+            + "\n\nUse cases explicitly named above must be evaluated for UI coverage. "
+            "Additional use cases inferred from the UI should also be evaluated."
+        )})
     user_content.append(image_block)
 
     # ------------------------------------------------------------------
