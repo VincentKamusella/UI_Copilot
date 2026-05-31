@@ -54,3 +54,24 @@ export interface AuditResponse {
   report: AuditReport | null;
   error: string | null;
 }
+
+export interface AuthUser {
+  username: string;
+  email: string;
+}
+
+export interface AuthResponse {
+  token: string;
+  username: string;
+  email: string;
+}
+
+export interface AuditHistoryItem {
+  id: string;
+  source_url: string | null;
+  source_type: "url" | "image";
+  page_title: string | null;
+  ux_score: number;
+  pages_crawled: number;
+  created_at: string;
+}

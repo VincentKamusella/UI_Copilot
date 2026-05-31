@@ -3,6 +3,9 @@
 *.env
 !.env.example
 
+# SQLite database (per-user data lives here)
+backend/data/
+
 # Python
 backend/.venv/
 backend/__pycache__/

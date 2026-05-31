@@ -2,16 +2,22 @@ import { useState } from "react";
 import { auditImage, auditUrl } from "./api";
 import A11yIssues from "./components/A11yIssues";
 import AuditForm from "./components/AuditForm";
+import AuditHistory from "./components/AuditHistory";
+import AuthPage from "./components/AuthPage";
 import CoverageGaps from "./components/CoverageGaps";
 import ScoreBadge from "./components/ScoreBadge";
 import Timeline from "./components/Timeline";
+import { useAuth } from "./lib/AuthContext";
 import type { AuditReport } from "./types";
 import "./index.css";
 
 export default function App() {
+  const { user, logout } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<AuditReport | null>(null);
+
+  if (!user) return <AuthPage />;
 
   async function handleUrlAudit(url: string, persona?: string, projectDescription?: string) {
     setLoading(true);
@@ -47,8 +53,8 @@ export default function App() {
     ? (() => {
         const counts = { critical: 0, high: 0, medium: 0, low: 0 };
         for (const s of report.user_story_timeline) {
-          const hasFriction = s.friction_point && s.friction_point.toLowerCase() !== "none";
-          if (hasFriction) counts[s.friction_severity]++;
+          if (s.friction_point && s.friction_point.toLowerCase() !== "none")
+            counts[s.friction_severity]++;
         }
         return counts;
       })()
@@ -65,8 +71,14 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <h1 className="logo">UI Copilot</h1>
-        <p className="tagline">Automated usability audits powered by Playwright + GPT-4o Vision</p>
+        <div>
+          <h1 className="logo">UI Copilot</h1>
+          <p className="tagline">Automated usability audits powered by Playwright + GPT-4o Vision</p>
+        </div>
+        <div className="header-user">
+          <span className="header-username">{user.username}</span>
+          <button className="btn-ghost" onClick={logout}>Sign out</button>
+        </div>
       </header>
 
       <main className="main">
@@ -115,43 +127,23 @@ export default function App() {
               <div className="counts-group">
                 <span className="counts-label">UX Friction</span>
                 <div className="summary-cards">
-                  <div className="summary-card critical">
-                    <span className="count">{frictionCounts.critical}</span>
-                    <span className="label">Critical</span>
-                  </div>
-                  <div className="summary-card high">
-                    <span className="count">{frictionCounts.high}</span>
-                    <span className="label">High</span>
-                  </div>
-                  <div className="summary-card medium">
-                    <span className="count">{frictionCounts.medium}</span>
-                    <span className="label">Medium</span>
-                  </div>
-                  <div className="summary-card low">
-                    <span className="count">{frictionCounts.low}</span>
-                    <span className="label">Low</span>
-                  </div>
+                  {(["critical", "high", "medium", "low"] as const).map((sev) => (
+                    <div key={sev} className={`summary-card ${sev}`}>
+                      <span className="count">{frictionCounts[sev]}</span>
+                      <span className="label">{sev.charAt(0).toUpperCase() + sev.slice(1)}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
               <div className="counts-group">
                 <span className="counts-label">Accessibility</span>
                 <div className="summary-cards">
-                  <div className="summary-card critical">
-                    <span className="count">{a11yCounts.critical}</span>
-                    <span className="label">Critical</span>
-                  </div>
-                  <div className="summary-card high">
-                    <span className="count">{a11yCounts.high}</span>
-                    <span className="label">High</span>
-                  </div>
-                  <div className="summary-card medium">
-                    <span className="count">{a11yCounts.medium}</span>
-                    <span className="label">Medium</span>
-                  </div>
-                  <div className="summary-card low">
-                    <span className="count">{a11yCounts.low}</span>
-                    <span className="label">Low</span>
-                  </div>
+                  {(["critical", "high", "medium", "low"] as const).map((sev) => (
+                    <div key={sev} className={`summary-card ${sev}`}>
+                      <span className="count">{a11yCounts[sev]}</span>
+                      <span className="label">{sev.charAt(0).toUpperCase() + sev.slice(1)}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -172,6 +164,8 @@ export default function App() {
             <A11yIssues issues={report.accessibility_issues} />
           </div>
         )}
+
+        <AuditHistory onRestore={(r) => setReport(r)} />
       </main>
     </div>
   );
