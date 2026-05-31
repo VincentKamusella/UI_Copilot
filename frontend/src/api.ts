@@ -19,9 +19,9 @@ export async function auditUrl(url: string, personaHint?: string, projectDescrip
   return res.json();
 }
 
-export async function auditImage(file: File, personaHint?: string, projectDescription?: string): Promise<AuditResponse> {
+export async function auditImage(files: File[], personaHint?: string, projectDescription?: string): Promise<AuditResponse> {
   const form = new FormData();
-  form.append("file", file);
+  for (const f of files) form.append("files", f);
   if (personaHint) form.append("persona_hint", personaHint);
   if (projectDescription) form.append("project_description", projectDescription);
   const res = await fetch(`${BASE}/audit/image`, { method: "POST", body: form });

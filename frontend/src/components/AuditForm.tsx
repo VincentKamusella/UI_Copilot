@@ -4,7 +4,7 @@ type Tab = "url" | "image";
 
 interface Props {
   onAuditUrl: (url: string, persona?: string, projectDescription?: string) => void;
-  onAuditImage: (file: File, persona?: string, projectDescription?: string) => void;
+  onAuditImage: (files: File[], persona?: string, projectDescription?: string) => void;
   loading: boolean;
 }
 
@@ -13,7 +13,7 @@ export default function AuditForm({ onAuditUrl, onAuditImage, loading }: Props) 
   const [url, setUrl] = useState("");
   const [persona, setPersona] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -24,14 +24,28 @@ export default function AuditForm({ onAuditUrl, onAuditImage, loading }: Props) 
 
   function handleImageSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (file) onAuditImage(file, persona.trim() || undefined, projectDescription.trim() || undefined);
+    if (files.length) onAuditImage(files, persona.trim() || undefined, projectDescription.trim() || undefined);
+  }
+
+  function addFiles(incoming: FileList | null) {
+    if (!incoming) return;
+    const valid = Array.from(incoming).filter(f =>
+      ["image/png", "image/jpeg", "image/webp"].includes(f.type)
+    );
+    setFiles(prev => {
+      const existing = new Set(prev.map(f => f.name + f.size));
+      return [...prev, ...valid.filter(f => !existing.has(f.name + f.size))];
+    });
+  }
+
+  function removeFile(index: number) {
+    setFiles(prev => prev.filter((_, i) => i !== index));
   }
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     setDragOver(false);
-    const dropped = e.dataTransfer.files[0];
-    if (dropped) setFile(dropped);
+    addFiles(e.dataTransfer.files);
   }
 
   const sharedFields = (
@@ -88,21 +102,35 @@ export default function AuditForm({ onAuditUrl, onAuditImage, loading }: Props) 
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
           >
-            {file ? (
-              <span className="file-name">{file.name}</span>
+            {files.length === 0 ? (
+              <span>Drop screenshots here or <u>click to browse</u> — multiple allowed</span>
             ) : (
-              <span>Drop a PNG / JPEG here or <u>click to browse</u></span>
+              <ul className="file-list">
+                {files.map((f, i) => (
+                  <li key={f.name + f.size} className="file-list-item">
+                    <span className="file-name">{f.name}</span>
+                    <button
+                      type="button"
+                      className="file-remove"
+                      onClick={(e) => { e.stopPropagation(); removeFile(i); }}
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
             <input
               ref={fileRef}
               type="file"
               accept="image/png,image/jpeg,image/webp"
+              multiple
               style={{ display: "none" }}
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              onChange={(e) => addFiles(e.target.files)}
             />
           </div>
           {sharedFields}
-          <button type="submit" className="btn-primary" disabled={loading || !file}>
+          <button type="submit" className="btn-primary" disabled={loading || files.length === 0}>
             {loading ? "Auditing…" : "Run Audit"}
           </button>
         </form>

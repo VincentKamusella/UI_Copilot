@@ -59,21 +59,23 @@ async def run_url_audit(
 
 
 async def run_image_audit(
-    image_bytes: bytes,
+    images: list[bytes],
     openai_client: AsyncOpenAI,
     model: str,
     persona_hint: Optional[str] = None,
     project_description: Optional[str] = None,
 ) -> AuditReport:
-    screenshot_b64 = capture_image_bytes(image_bytes)
-
-    pages = [{
-        "url": None,
-        "title": None,
-        "trigger": "Uploaded image",
-        "screenshot_b64": screenshot_b64,
-        "dom": None,
-    }]
+    total = len(images)
+    pages = [
+        {
+            "url": None,
+            "title": None,
+            "trigger": f"Screenshot {i + 1} of {total}" if total > 1 else "Uploaded screenshot",
+            "screenshot_b64": capture_image_bytes(img),
+            "dom": None,
+        }
+        for i, img in enumerate(images)
+    ]
 
     summary, steps, a11y, coverage_gaps = await analyze(
         pages=pages,
@@ -93,7 +95,7 @@ async def run_image_audit(
         user_story_timeline=steps,
         accessibility_issues=a11y,
         coverage_gaps=coverage_gaps,
-        pages_crawled=1,
+        pages_crawled=total,
         dom_element_count=None,
         screenshot_captured=True,
     )

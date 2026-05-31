@@ -40,29 +40,37 @@ async def audit_url(body: AuditURLRequest, request: Request):
 @router.post("/audit/image", response_model=AuditResponse)
 async def audit_image(
     request: Request,
-    file: UploadFile = File(..., description="PNG, JPEG, or WebP screenshot"),
+    files: list[UploadFile] = File(..., description="One or more PNG, JPEG, or WebP screenshots"),
     persona_hint: str = Form(default="", description="Optional persona context"),
     project_description: str = Form(default="", description="Optional project description"),
 ):
-    if file.content_type not in {"image/png", "image/jpeg", "image/webp"}:
+    if not files:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Only PNG, JPEG, and WebP images are accepted.",
+            detail="At least one image is required.",
         )
 
-    image_bytes = await file.read()
-    if len(image_bytes) > 10 * 1024 * 1024:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="Image must be under 10 MB.",
-        )
+    images: list[bytes] = []
+    for f in files:
+        if f.content_type not in {"image/png", "image/jpeg", "image/webp"}:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"{f.filename}: only PNG, JPEG, and WebP images are accepted.",
+            )
+        data = await f.read()
+        if len(data) > 10 * 1024 * 1024:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"{f.filename}: image must be under 10 MB.",
+            )
+        images.append(data)
 
     client: AsyncOpenAI = request.app.state.openai_client
     model: str = request.app.state.openai_model
 
     try:
         report = await run_image_audit(
-            image_bytes=image_bytes,
+            images=images,
             openai_client=client,
             model=model,
             persona_hint=persona_hint or None,

@@ -28,12 +28,12 @@ export default function App() {
     }
   }
 
-  async function handleImageAudit(file: File, persona?: string, projectDescription?: string) {
+  async function handleImageAudit(files: File[], persona?: string, projectDescription?: string) {
     setLoading(true);
     setError(null);
     setReport(null);
     try {
-      const res = await auditImage(file, persona, projectDescription);
+      const res = await auditImage(files, persona, projectDescription);
       if (!res.success || !res.report) throw new Error(res.error ?? "Audit failed");
       setReport(res.report);
     } catch (e) {
