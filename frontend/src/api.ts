@@ -9,25 +9,36 @@ function authHeader(): Record<string, string> {
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
-export async function register(username: string, email: string, password: string): Promise<AuthResponse> {
+export async function register(
+  username: string,
+  email: string,
+  password: string,
+): Promise<{ pending: boolean; message: string }> {
   const res = await fetch(`${BASE}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, email, password }),
   });
-  const data = await res.json();
+  const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.detail ?? `Error ${res.status}`);
   return data;
 }
 
-export async function login(username: string, password: string): Promise<AuthResponse> {
+export async function login(loginField: string, password: string): Promise<AuthResponse> {
   const res = await fetch(`${BASE}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ login: loginField, password }),
   });
-  const data = await res.json();
+  const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.detail ?? `Error ${res.status}`);
+  return data;
+}
+
+export async function verifyEmail(token: string): Promise<{ verified: boolean; username: string }> {
+  const res = await fetch(`${BASE}/auth/verify/${token}`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail ?? "Verification failed.");
   return data;
 }
 

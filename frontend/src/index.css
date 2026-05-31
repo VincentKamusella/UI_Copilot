@@ -499,6 +499,32 @@ body { margin: 0; }
   max-width: 420px;
 }
 
+/* ── Verification states ── */
+.verify-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+  padding: 8px 0 4px;
+}
+.verify-success h2 { margin: 0; font-size: 20px; }
+.verify-success p  { margin: 0; font-size: 14px; color: var(--text-muted); line-height: 1.6; }
+
+.verify-icon {
+  font-size: 36px;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #dcfce7;
+  color: #16a34a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.verify-icon.error   { background: #fee2e2; color: #dc2626; }
+.verify-icon.pending { background: #fef9c3; color: #ca8a04; font-size: 28px; }
+
 /* ── Form field validation ── */
 .field-group {
   display: flex;

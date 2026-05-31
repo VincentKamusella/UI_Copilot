@@ -5,8 +5,8 @@ import type { AuthUser } from "../types";
 interface AuthContextValue {
   user: AuthUser | null;
   token: string | null;
-  login: (username: string, password: string) => Promise<void>;
-  register: (username: string, email: string, password: string) => Promise<void>;
+  login: (loginField: string, password: string) => Promise<void>;
+  register: (username: string, email: string, password: string) => Promise<{ pending: boolean; message: string }>;
   logout: () => void;
 }
 
@@ -26,14 +26,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(u);
   }
 
-  async function login(username: string, password: string) {
-    const res = await apiLogin(username, password);
+  async function login(loginField: string, password: string) {
+    const res = await apiLogin(loginField, password);
     persist(res.token, { username: res.username, email: res.email });
   }
 
   async function register(username: string, email: string, password: string) {
     const res = await apiRegister(username, email, password);
-    persist(res.token, { username: res.username, email: res.email });
+    return res; // {pending: true, message: "..."} — caller shows the pending UI
   }
 
   function logout() {

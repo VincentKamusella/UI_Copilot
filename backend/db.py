@@ -21,11 +21,13 @@ def init_db() -> None:
     conn = get_db()
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS users (
-            id            INTEGER PRIMARY KEY AUTOINCREMENT,
-            username      TEXT    UNIQUE NOT NULL,
-            email         TEXT    UNIQUE NOT NULL,
-            password_hash TEXT    NOT NULL,
-            created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+            id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+            username           TEXT    UNIQUE NOT NULL,
+            email              TEXT    UNIQUE NOT NULL,
+            password_hash      TEXT    NOT NULL,
+            verified           INTEGER NOT NULL DEFAULT 0,
+            verification_token TEXT,
+            created_at         DATETIME DEFAULT CURRENT_TIMESTAMP
         );
 
         CREATE TABLE IF NOT EXISTS audits (
@@ -70,16 +72,30 @@ def get_user_by_email(email: str) -> Optional[dict]:
     return dict(row) if row else None
 
 
-def create_user(username: str, email: str, password_hash: str) -> dict:
+def create_user(username: str, email: str, password_hash: str, verification_token: str) -> dict:
     conn = get_db()
     conn.execute(
-        "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)",
-        (username, email.lower(), password_hash),
+        "INSERT INTO users (username, email, password_hash, verification_token) VALUES (?, ?, ?, ?)",
+        (username, email.lower(), password_hash, verification_token),
     )
     conn.commit()
     row = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
     conn.close()
     return dict(row)
+
+
+def verify_user_by_token(token: str) -> Optional[dict]:
+    conn = get_db()
+    row = conn.execute(
+        "SELECT * FROM users WHERE verification_token = ? AND verified = 0", (token,)
+    ).fetchone()
+    if row:
+        conn.execute(
+            "UPDATE users SET verified = 1, verification_token = NULL WHERE id = ?", (row["id"],)
+        )
+        conn.commit()
+    conn.close()
+    return dict(row) if row else None
 
 
 # ── Audit helpers ─────────────────────────────────────────────────────────────
