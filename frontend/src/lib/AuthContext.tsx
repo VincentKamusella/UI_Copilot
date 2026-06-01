@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
-import { login as apiLogin, register as apiRegister } from "../api";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { login as apiLogin, register as apiRegister, setUnauthorizedHandler } from "../api";
 import type { AuthUser } from "../types";
 
 interface AuthContextValue {
@@ -18,6 +18,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const raw = localStorage.getItem("user");
     return raw ? JSON.parse(raw) : null;
   });
+
+  useEffect(() => {
+    setUnauthorizedHandler(logout);
+  }, []);
 
   function persist(t: string, u: AuthUser) {
     localStorage.setItem("token", t);

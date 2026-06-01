@@ -2,9 +2,23 @@ import type { AuditHistoryItem, AuditReport, AuditResponse, AuthResponse } from 
 
 const BASE = "/api";
 
+// Registered by AuthContext on mount — called when any authenticated request
+// returns 401 (expired or revoked token) so the user is logged out immediately.
+let _onUnauthorized: (() => void) | null = null;
+export function setUnauthorizedHandler(fn: () => void) { _onUnauthorized = fn; }
+
 function authHeader(): Record<string, string> {
   const token = localStorage.getItem("token");
   return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function authedFetch(input: RequestInfo, init: RequestInit = {}): Promise<Response> {
+  const res = await fetch(input, init);
+  if (res.status === 401) {
+    _onUnauthorized?.();
+    throw new Error("Session expired. Please sign in again.");
+  }
+  return res;
 }
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
@@ -45,7 +59,7 @@ export async function verifyEmail(token: string): Promise<{ verified: boolean; u
 // ── Audits ────────────────────────────────────────────────────────────────────
 
 export async function auditUrl(url: string, personaHint?: string, projectDescription?: string): Promise<AuditResponse> {
-  const res = await fetch(`${BASE}/audit/url`, {
+  const res = await authedFetch(`${BASE}/audit/url`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeader() },
     body: JSON.stringify({
@@ -66,7 +80,7 @@ export async function auditImage(files: File[], personaHint?: string, projectDes
   for (const f of files) form.append("files", f);
   if (personaHint) form.append("persona_hint", personaHint);
   if (projectDescription) form.append("project_description", projectDescription);
-  const res = await fetch(`${BASE}/audit/image`, {
+  const res = await authedFetch(`${BASE}/audit/image`, {
     method: "POST",
     headers: authHeader(),
     body: form,
@@ -81,25 +95,25 @@ export async function auditImage(files: File[], personaHint?: string, projectDes
 // ── History ───────────────────────────────────────────────────────────────────
 
 export async function fetchHistory(): Promise<AuditHistoryItem[]> {
-  const res = await fetch(`${BASE}/history`, { headers: authHeader() });
+  const res = await authedFetch(`${BASE}/history`, { headers: authHeader() });
   if (!res.ok) throw new Error("Failed to load history.");
   return res.json();
 }
 
 export async function fetchAudit(id: string): Promise<AuditReport> {
-  const res = await fetch(`${BASE}/history/${id}`, { headers: authHeader() });
+  const res = await authedFetch(`${BASE}/history/${id}`, { headers: authHeader() });
   if (!res.ok) throw new Error("Audit not found.");
   return res.json();
 }
 
 export async function deleteAccount(): Promise<void> {
-  await fetch(`${BASE}/auth/account`, { method: "DELETE", headers: authHeader() });
+  await authedFetch(`${BASE}/auth/account`, { method: "DELETE", headers: authHeader() });
 }
 
 export async function clearHistory(): Promise<void> {
-  await fetch(`${BASE}/history`, { method: "DELETE", headers: authHeader() });
+  await authedFetch(`${BASE}/history`, { method: "DELETE", headers: authHeader() });
 }
 
 export async function deleteAudit(id: string): Promise<void> {
-  await fetch(`${BASE}/history/${id}`, { method: "DELETE", headers: authHeader() });
+  await authedFetch(`${BASE}/history/${id}`, { method: "DELETE", headers: authHeader() });
 }
