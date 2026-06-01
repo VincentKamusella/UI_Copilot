@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { auditImage, auditUrl, deleteAccount } from "./api";
+import { auditImage, auditUrl, deleteAccount, fetchAudit } from "./api";
 import A11yIssues from "./components/A11yIssues";
 import AuditForm from "./components/AuditForm";
 import AuditHistory from "./components/AuditHistory";
 import AuthPage from "./components/AuthPage";
+import ComparePicker from "./components/ComparePicker";
+import CompareView from "./components/CompareView";
 import CoverageGaps from "./components/CoverageGaps";
 import ScoreBadge from "./components/ScoreBadge";
 import Timeline from "./components/Timeline";
@@ -17,6 +19,14 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<AuditReport | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [comparePickerOpen, setComparePickerOpen] = useState(false);
+  const [compareReport, setCompareReport] = useState<AuditReport | null>(null);
+
+  async function handleComparePick(id: string) {
+    setComparePickerOpen(false);
+    const r = await fetchAudit(id);
+    setCompareReport(r);
+  }
 
   async function handleDeleteAccount() {
     await deleteAccount();
@@ -137,7 +147,12 @@ export default function App() {
                   {report.accessibility_issues.length} accessibility issues
                 </p>
               </div>
-              <ScoreBadge score={report.summary.overall_ux_score} />
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <ScoreBadge score={report.summary.overall_ux_score} />
+                <button className="btn-ghost" onClick={() => setComparePickerOpen(true)}>
+                  Compare
+                </button>
+              </div>
             </div>
 
             <div className="counts-section">
@@ -182,7 +197,23 @@ export default function App() {
           </div>
         )}
 
-        <AuditHistory onRestore={(r) => setReport(r)} />
+        {compareReport && report && (
+          <CompareView
+            base={compareReport}
+            current={report}
+            onClose={() => setCompareReport(null)}
+          />
+        )}
+
+        {comparePickerOpen && report && (
+          <ComparePicker
+            excludeId={report.audit_id}
+            onPick={handleComparePick}
+            onClose={() => setComparePickerOpen(false)}
+          />
+        )}
+
+        <AuditHistory onRestore={(r) => { setReport(r); setCompareReport(null); }} />
       </main>
     </div>
   );
