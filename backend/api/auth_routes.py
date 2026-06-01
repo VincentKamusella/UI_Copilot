@@ -143,6 +143,8 @@ def reset_password(body: ResetPasswordRequest):
     user = get_user_by_reset_token(body.token)
     if not user:
         raise HTTPException(status_code=400, detail="Reset link is invalid or has expired.")
+    if verify_password(body.new_password, user["password_hash"]):
+        raise HTTPException(status_code=422, detail="New password must be different from your current password.")
     apply_password_reset(body.token, hash_password(body.new_password))
     return {"reset": True}
 
