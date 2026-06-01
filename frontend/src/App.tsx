@@ -6,6 +6,7 @@ import AuditHistory from "./components/AuditHistory";
 import AuthPage from "./components/AuthPage";
 import ComparePicker from "./components/ComparePicker";
 import CompareView from "./components/CompareView";
+import Logo from "./components/Logo";
 import SubscriptionPanel from "./components/SubscriptionPanel";
 import CoverageGaps from "./components/CoverageGaps";
 import ScoreBadge from "./components/ScoreBadge";
@@ -92,7 +93,7 @@ export default function App() {
     <div className="app">
       <header className="header">
         <div>
-          <h1 className="logo">UI Copilot</h1>
+          <Logo />
           <p className="tagline">Automated usability audits powered by Playwright + GPT-4o Vision</p>
         </div>
         <div className="header-user">

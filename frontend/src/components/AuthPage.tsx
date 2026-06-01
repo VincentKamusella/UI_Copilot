@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { forgotPassword, resetPassword, verifyEmail } from "../api";
 import { useAuth } from "../lib/AuthContext";
+import Logo from "./Logo";
 
 type Mode = "signin" | "register";
 type Stage = "form" | "pending" | "verified" | "verify-error" | "forgot" | "forgot-sent" | "reset" | "reset-done" | "reset-error";
@@ -133,7 +134,7 @@ export default function AuthPage() {
     return (
       <div className="auth-page">
         <div className="auth-card">
-          <h1 className="logo" style={{ marginBottom: 4 }}>UI Copilot</h1>
+          <Logo style={{ marginBottom: 4 }} />
           <p className="tagline" style={{ marginBottom: 28 }}>Reset your password</p>
           <form onSubmit={handleForgot} className="form-body">
             <div className="field-group">
@@ -165,7 +166,7 @@ export default function AuthPage() {
     return (
       <div className="auth-page">
         <div className="auth-card">
-          <h1 className="logo" style={{ marginBottom: 4 }}>UI Copilot</h1>
+          <Logo style={{ marginBottom: 4 }} />
           <div className="verify-success">
             <div className="verify-icon pending">⏳</div>
             <h2>Check the server terminal</h2>
@@ -184,7 +185,7 @@ export default function AuthPage() {
     return (
       <div className="auth-page">
         <div className="auth-card">
-          <h1 className="logo" style={{ marginBottom: 4 }}>UI Copilot</h1>
+          <Logo style={{ marginBottom: 4 }} />
           <p className="tagline" style={{ marginBottom: 28 }}>Choose a new password</p>
           <form onSubmit={handleReset} className="form-body">
             <div className="field-group">
@@ -214,7 +215,7 @@ export default function AuthPage() {
     return (
       <div className="auth-page">
         <div className="auth-card">
-          <h1 className="logo" style={{ marginBottom: 4 }}>UI Copilot</h1>
+          <Logo style={{ marginBottom: 4 }} />
           <div className="verify-success">
             <div className="verify-icon">✓</div>
             <h2>Password updated!</h2>
@@ -233,7 +234,7 @@ export default function AuthPage() {
     return (
       <div className="auth-page">
         <div className="auth-card">
-          <h1 className="logo" style={{ marginBottom: 4 }}>UI Copilot</h1>
+          <Logo style={{ marginBottom: 4 }} />
           <div className="verify-success">
             <div className="verify-icon error">✗</div>
             <h2>Link expired</h2>
@@ -252,7 +253,7 @@ export default function AuthPage() {
     return (
       <div className="auth-page">
         <div className="auth-card">
-          <h1 className="logo" style={{ marginBottom: 4 }}>UI Copilot</h1>
+          <Logo style={{ marginBottom: 4 }} />
           <div className="verify-success">
             <div className="verify-icon">✓</div>
             <h2>Email verified!</h2>
@@ -271,7 +272,7 @@ export default function AuthPage() {
     return (
       <div className="auth-page">
         <div className="auth-card">
-          <h1 className="logo" style={{ marginBottom: 4 }}>UI Copilot</h1>
+          <Logo style={{ marginBottom: 4 }} />
           <div className="verify-success">
             <div className="verify-icon error">✗</div>
             <h2>Invalid link</h2>
@@ -290,7 +291,7 @@ export default function AuthPage() {
     return (
       <div className="auth-page">
         <div className="auth-card">
-          <h1 className="logo" style={{ marginBottom: 4 }}>UI Copilot</h1>
+          <Logo style={{ marginBottom: 4 }} />
           <div className="verify-success">
             <div className="verify-icon pending">⏳</div>
             <h2>Check the server terminal</h2>
