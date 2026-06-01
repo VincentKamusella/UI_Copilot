@@ -44,6 +44,12 @@ body { margin: 0; }
   color: var(--text-muted);
 }
 
+.header-confirm-label {
+  font-size: 13px;
+  color: #ef4444;
+  font-weight: 500;
+}
+
 .logo {
   margin: 0;
   font-size: 22px;

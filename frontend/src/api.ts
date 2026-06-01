@@ -92,6 +92,10 @@ export async function fetchAudit(id: string): Promise<AuditReport> {
   return res.json();
 }
 
+export async function deleteAccount(): Promise<void> {
+  await fetch(`${BASE}/auth/account`, { method: "DELETE", headers: authHeader() });
+}
+
 export async function clearHistory(): Promise<void> {
   await fetch(`${BASE}/history`, { method: "DELETE", headers: authHeader() });
 }

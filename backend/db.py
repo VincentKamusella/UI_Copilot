@@ -84,6 +84,13 @@ def create_user(username: str, email: str, password_hash: str, verification_toke
     return dict(row)
 
 
+def delete_user(user_id: int) -> None:
+    conn = get_db()
+    conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    conn.commit()
+    conn.close()
+
+
 def verify_user_by_token(token: str) -> Optional[dict]:
     conn = get_db()
     row = conn.execute(

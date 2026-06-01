@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { auditImage, auditUrl } from "./api";
+import { auditImage, auditUrl, deleteAccount } from "./api";
 import A11yIssues from "./components/A11yIssues";
 import AuditForm from "./components/AuditForm";
 import AuditHistory from "./components/AuditHistory";
@@ -16,6 +16,12 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<AuditReport | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  async function handleDeleteAccount() {
+    await deleteAccount();
+    logout();
+  }
 
   if (!user) return <AuthPage />;
 
@@ -77,7 +83,18 @@ export default function App() {
         </div>
         <div className="header-user">
           <span className="header-username">{user.username}</span>
-          <button className="btn-ghost" onClick={logout}>Sign out</button>
+          {confirmDelete ? (
+            <>
+              <span className="header-confirm-label">Delete account?</span>
+              <button className="btn-ghost btn-danger" onClick={handleDeleteAccount}>Confirm</button>
+              <button className="btn-ghost" onClick={() => setConfirmDelete(false)}>Cancel</button>
+            </>
+          ) : (
+            <>
+              <button className="btn-ghost" onClick={() => setConfirmDelete(true)}>Delete account</button>
+              <button className="btn-ghost" onClick={logout}>Sign out</button>
+            </>
+          )}
         </div>
       </header>
 

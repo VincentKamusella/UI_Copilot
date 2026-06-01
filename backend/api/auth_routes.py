@@ -17,6 +17,7 @@ from ..core.auth_utils import (
 )
 from ..db import (
     create_user,
+    delete_user,
     get_user_by_email,
     get_user_by_username,
     verify_user_by_token,
@@ -106,6 +107,12 @@ def verify_email(token: str):
     if not user:
         raise HTTPException(status_code=400, detail="Invalid or already used verification link.")
     return {"verified": True, "username": user["username"]}
+
+
+@router.delete("/account")
+def delete_account(user: dict = Depends(get_current_user)):
+    delete_user(user["id"])  # cascades to all their audits
+    return {"deleted": True}
 
 
 @router.get("/me")
