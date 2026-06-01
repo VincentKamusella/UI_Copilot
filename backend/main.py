@@ -13,6 +13,7 @@ from openai import AsyncOpenAI
 from .api.auth_routes import router as auth_router
 from .api.history_routes import router as history_router
 from .api.routes import router
+from .api.subscription_routes import router as subscription_router
 from .db import init_db
 
 load_dotenv()
@@ -65,4 +66,5 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(history_router)
+app.include_router(subscription_router)
 app.include_router(router)

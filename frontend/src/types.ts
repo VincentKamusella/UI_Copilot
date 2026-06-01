@@ -66,6 +66,16 @@ export interface AuthResponse {
   email: string;
 }
 
+export type PlanId = "free" | "pro" | "premium";
+
+export interface SubscriptionInfo {
+  subscription: PlanId;
+  credits_used: number;
+  credits_limit: number | null;
+  credits_remaining: number | null;
+  next_reset: string | null;
+}
+
 export interface AuditHistoryItem {
   id: string;
   source_url: string | null;

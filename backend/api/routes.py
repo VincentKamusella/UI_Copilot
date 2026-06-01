@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from openai import AsyncOpenAI
 
 from ..core.audit import run_image_audit, run_url_audit
-from ..db import save_audit
+from ..db import get_subscription, save_audit, use_credit
 from ..models.schemas import AuditResponse, AuditURLRequest
 from .deps import get_current_user
 
@@ -18,12 +18,22 @@ async def health():
     return {"status": "ok"}
 
 
+def _check_credits(user: dict) -> None:
+    info = get_subscription(user["id"])
+    if info["credits_remaining"] is not None and info["credits_remaining"] <= 0:
+        raise HTTPException(
+            status_code=402,
+            detail=f"Monthly credit limit reached ({info['credits_limit']} audits). Upgrade your plan to continue.",
+        )
+
+
 @router.post("/audit/url", response_model=AuditResponse)
 async def audit_url(
     body: AuditURLRequest,
     request: Request,
     user: dict = Depends(get_current_user),
 ):
+    _check_credits(user)
     client: AsyncOpenAI = request.app.state.openai_client
     model: str = request.app.state.openai_model
 
@@ -45,7 +55,10 @@ async def audit_url(
             pages_crawled=report.pages_crawled,
             report_json=report.model_dump_json(),
         )
+        use_credit(user["id"])
         return AuditResponse(success=True, report=report)
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
 
@@ -58,6 +71,7 @@ async def audit_image(
     project_description: str = Form(default=""),
     user: dict = Depends(get_current_user),
 ):
+    _check_credits(user)
     if not files:
         raise HTTPException(status_code=422, detail="At least one image is required.")
 
@@ -91,6 +105,9 @@ async def audit_image(
             pages_crawled=report.pages_crawled,
             report_json=report.model_dump_json(),
         )
+        use_credit(user["id"])
         return AuditResponse(success=True, report=report)
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc

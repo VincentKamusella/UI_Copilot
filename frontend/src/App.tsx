@@ -6,6 +6,7 @@ import AuditHistory from "./components/AuditHistory";
 import AuthPage from "./components/AuthPage";
 import ComparePicker from "./components/ComparePicker";
 import CompareView from "./components/CompareView";
+import SubscriptionPanel from "./components/SubscriptionPanel";
 import CoverageGaps from "./components/CoverageGaps";
 import ScoreBadge from "./components/ScoreBadge";
 import Timeline from "./components/Timeline";
@@ -21,6 +22,7 @@ export default function App() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [comparePickerOpen, setComparePickerOpen] = useState(false);
   const [compareReport, setCompareReport] = useState<AuditReport | null>(null);
+  const [subRefreshKey, setSubRefreshKey] = useState(0);
 
   async function handleComparePick(id: string) {
     setComparePickerOpen(false);
@@ -43,6 +45,7 @@ export default function App() {
       const res = await auditUrl(url, persona, projectDescription);
       if (!res.success || !res.report) throw new Error(res.error ?? "Audit failed");
       setReport(res.report);
+      setSubRefreshKey((k) => k + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -58,6 +61,7 @@ export default function App() {
       const res = await auditImage(files, persona, projectDescription);
       if (!res.success || !res.report) throw new Error(res.error ?? "Audit failed");
       setReport(res.report);
+      setSubRefreshKey((k) => k + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -214,6 +218,7 @@ export default function App() {
         )}
 
         <AuditHistory onRestore={(r) => { setReport(r); setCompareReport(null); }} />
+        <SubscriptionPanel refreshKey={subRefreshKey} />
       </main>
     </div>
   );

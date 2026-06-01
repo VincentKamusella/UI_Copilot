@@ -1,4 +1,4 @@
-import type { AuditHistoryItem, AuditReport, AuditResponse, AuthResponse } from "./types";
+import type { AuditHistoryItem, AuditReport, AuditResponse, AuthResponse, SubscriptionInfo } from "./types";
 
 const BASE = "/api";
 
@@ -138,4 +138,23 @@ export async function clearHistory(): Promise<void> {
 
 export async function deleteAudit(id: string): Promise<void> {
   await authedFetch(`${BASE}/history/${id}`, { method: "DELETE", headers: authHeader() });
+}
+
+// ── Subscription ──────────────────────────────────────────────────────────────
+
+export async function fetchSubscription(): Promise<SubscriptionInfo> {
+  const res = await authedFetch(`${BASE}/subscription`, { headers: authHeader() });
+  if (!res.ok) throw new Error("Failed to load subscription.");
+  return res.json();
+}
+
+export async function upgradePlan(plan: string): Promise<SubscriptionInfo> {
+  const res = await authedFetch(`${BASE}/subscription/upgrade`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeader() },
+    body: JSON.stringify({ plan }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail ?? `Error ${res.status}`);
+  return data;
 }

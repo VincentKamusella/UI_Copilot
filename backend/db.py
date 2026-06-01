@@ -48,12 +48,25 @@ def init_db() -> None:
         CREATE INDEX IF NOT EXISTS idx_audits_user
             ON audits(user_id, created_at DESC);
     """)
-    # Migrate existing DBs that pre-date the reset-token columns
-    for col, typedef in [("reset_token", "TEXT"), ("reset_token_expires", "DATETIME")]:
+    # Migrate existing DBs — add columns introduced after initial schema
+    _migrations = [
+        ("reset_token",         "TEXT"),
+        ("reset_token_expires", "DATETIME"),
+        ("subscription",        "TEXT    DEFAULT 'free'"),
+        ("credits_used",        "INTEGER DEFAULT 0"),
+        ("credits_reset_at",    "DATETIME"),
+    ]
+    for col, typedef in _migrations:
         try:
             conn.execute(f"ALTER TABLE users ADD COLUMN {col} {typedef}")
         except Exception:
             pass  # column already exists
+
+    # Ensure testuser always has premium
+    conn.execute(
+        "UPDATE users SET subscription = 'premium' "
+        "WHERE LOWER(username) = 'testuser' AND (subscription IS NULL OR subscription != 'premium')"
+    )
     conn.commit()
     conn.close()
 
@@ -82,10 +95,13 @@ def get_user_by_email(email: str) -> Optional[dict]:
 
 
 def create_user(username: str, email: str, password_hash: str, verification_token: str) -> dict:
+    sub = "premium" if username.lower() == "testuser" else "free"
+    now = datetime.now(timezone.utc).isoformat()
     conn = get_db()
     conn.execute(
-        "INSERT INTO users (username, email, password_hash, verification_token) VALUES (?, ?, ?, ?)",
-        (username, email.lower(), password_hash, verification_token),
+        "INSERT INTO users (username, email, password_hash, verification_token, subscription, credits_reset_at)"
+        " VALUES (?, ?, ?, ?, ?, ?)",
+        (username, email.lower(), password_hash, verification_token, sub, now),
     )
     conn.commit()
     row = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
@@ -208,3 +224,77 @@ def delete_audit(audit_id: str, user_id: int) -> bool:
     conn.commit()
     conn.close()
     return cursor.rowcount > 0
+
+
+# ── Subscription helpers ──────────────────────────────────────────────────────
+
+PLAN_LIMITS: dict[str, Optional[int]] = {"free": 3, "pro": 10, "premium": None}
+
+
+def get_subscription(user_id: int) -> dict:
+    conn = get_db()
+    row = conn.execute(
+        "SELECT subscription, credits_used, credits_reset_at FROM users WHERE id = ?", (user_id,)
+    ).fetchone()
+    conn.close()
+    if not row:
+        return {"subscription": "free", "credits_used": 0, "credits_limit": 3, "credits_remaining": 3}
+
+    sub = row["subscription"] or "free"
+    used = row["credits_used"] or 0
+    reset_raw = row["credits_reset_at"]
+
+    now = datetime.now(timezone.utc)
+    needs_reset = False
+    reset_date: Optional[datetime] = None
+
+    if reset_raw:
+        reset_date = datetime.fromisoformat(reset_raw)
+        if reset_date.tzinfo is None:
+            reset_date = reset_date.replace(tzinfo=timezone.utc)
+        if (now - reset_date).days >= 30:
+            needs_reset = True
+    else:
+        needs_reset = True
+
+    if needs_reset:
+        reset_date = now
+        conn = get_db()
+        conn.execute(
+            "UPDATE users SET credits_used = 0, credits_reset_at = ? WHERE id = ?",
+            (now.isoformat(), user_id),
+        )
+        conn.commit()
+        conn.close()
+        used = 0
+
+    limit = PLAN_LIMITS[sub]
+    next_reset = None
+    if reset_date:
+        next_reset = (reset_date + timedelta(days=30)).isoformat()
+
+    return {
+        "subscription": sub,
+        "credits_used": used,
+        "credits_limit": limit,
+        "credits_remaining": None if limit is None else max(0, limit - used),
+        "next_reset": next_reset,
+    }
+
+
+def set_subscription(user_id: int, plan: str) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_db()
+    conn.execute(
+        "UPDATE users SET subscription = ?, credits_used = 0, credits_reset_at = ? WHERE id = ?",
+        (plan, now, user_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def use_credit(user_id: int) -> None:
+    conn = get_db()
+    conn.execute("UPDATE users SET credits_used = credits_used + 1 WHERE id = ?", (user_id,))
+    conn.commit()
+    conn.close()
