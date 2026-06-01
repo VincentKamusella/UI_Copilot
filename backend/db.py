@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -27,6 +28,8 @@ def init_db() -> None:
             password_hash      TEXT    NOT NULL,
             verified           INTEGER NOT NULL DEFAULT 0,
             verification_token TEXT,
+            reset_token        TEXT,
+            reset_token_expires DATETIME,
             created_at         DATETIME DEFAULT CURRENT_TIMESTAMP
         );
 
@@ -45,6 +48,12 @@ def init_db() -> None:
         CREATE INDEX IF NOT EXISTS idx_audits_user
             ON audits(user_id, created_at DESC);
     """)
+    # Migrate existing DBs that pre-date the reset-token columns
+    for col, typedef in [("reset_token", "TEXT"), ("reset_token_expires", "DATETIME")]:
+        try:
+            conn.execute(f"ALTER TABLE users ADD COLUMN {col} {typedef}")
+        except Exception:
+            pass  # column already exists
     conn.commit()
     conn.close()
 
@@ -89,6 +98,49 @@ def delete_user(user_id: int) -> None:
     conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
     conn.commit()
     conn.close()
+
+
+def create_reset_token(email: str, token: str) -> bool:
+    """Store a password-reset token (1-hour expiry). Returns False if email not found."""
+    expires = datetime.now(timezone.utc) + timedelta(hours=1)
+    conn = get_db()
+    cursor = conn.execute(
+        "UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE email = ? AND verified = 1",
+        (token, expires.isoformat(), email),
+    )
+    conn.commit()
+    conn.close()
+    return cursor.rowcount > 0
+
+
+def get_user_by_reset_token(token: str) -> Optional[dict]:
+    conn = get_db()
+    row = conn.execute(
+        "SELECT * FROM users WHERE reset_token = ?", (token,)
+    ).fetchone()
+    conn.close()
+    if not row:
+        return None
+    expires_raw = row["reset_token_expires"]
+    if not expires_raw:
+        return None
+    expires = datetime.fromisoformat(expires_raw)
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    if datetime.now(timezone.utc) > expires:
+        return None
+    return dict(row)
+
+
+def apply_password_reset(token: str, new_hash: str) -> bool:
+    conn = get_db()
+    cursor = conn.execute(
+        "UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE reset_token = ?",
+        (new_hash, token),
+    )
+    conn.commit()
+    conn.close()
+    return cursor.rowcount > 0
 
 
 def verify_user_by_token(token: str) -> Optional[dict]:

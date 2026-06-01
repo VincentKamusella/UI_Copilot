@@ -1,4 +1,4 @@
-"""Auth endpoints — register, login, verify, me."""
+"""Auth endpoints — register, login, verify, forgot-password, reset-password, me."""
 
 from __future__ import annotations
 
@@ -16,9 +16,12 @@ from ..core.auth_utils import (
     verify_password,
 )
 from ..db import (
+    apply_password_reset,
+    create_reset_token,
     create_user,
     delete_user,
     get_user_by_email,
+    get_user_by_reset_token,
     get_user_by_username,
     verify_user_by_token,
 )
@@ -107,6 +110,41 @@ def verify_email(token: str):
     if not user:
         raise HTTPException(status_code=400, detail="Invalid or already used verification link.")
     return {"verified": True, "username": user["username"]}
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+@router.post("/forgot-password")
+def forgot_password(body: ForgotPasswordRequest):
+    token = secrets.token_urlsafe(32)
+    found = create_reset_token(body.email.lower(), token)
+    if found:
+        link = f"{_FRONTEND_URL}/?reset={token}"
+        print(f"\n{'='*60}")
+        print(f"  UI Copilot — password reset link")
+        print(f"  {link}")
+        print(f"{'='*60}\n")
+    # Always return the same response to avoid leaking which emails exist
+    return {"sent": True, "message": "If that email is registered, a reset link was printed to the server terminal."}
+
+
+@router.post("/reset-password")
+def reset_password(body: ResetPasswordRequest):
+    err = validate_password(body.new_password)
+    if err:
+        raise HTTPException(status_code=422, detail=err)
+    user = get_user_by_reset_token(body.token)
+    if not user:
+        raise HTTPException(status_code=400, detail="Reset link is invalid or has expired.")
+    apply_password_reset(body.token, hash_password(body.new_password))
+    return {"reset": True}
 
 
 @router.delete("/account")

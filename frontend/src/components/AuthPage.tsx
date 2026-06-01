@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { verifyEmail } from "../api";
+import { forgotPassword, resetPassword, verifyEmail } from "../api";
 import { useAuth } from "../lib/AuthContext";
 
 type Mode = "signin" | "register";
-type Stage = "form" | "pending" | "verified" | "verify-error";
+type Stage = "form" | "pending" | "verified" | "verify-error" | "forgot" | "forgot-sent" | "reset" | "reset-done" | "reset-error";
 
 function validateUsername(v: string): string {
   if (v.length < 4 || v.length > 20) return "Must be 4–20 characters.";
@@ -32,30 +32,36 @@ export default function AuthPage() {
   const [mode, setMode] = useState<Mode>("signin");
   const [stage, setStage] = useState<Stage>("form");
   const [verifiedUsername, setVerifiedUsername] = useState("");
+  const [resetToken, setResetToken] = useState("");
 
   const [loginField, setLoginField] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
+  const [forgotEmail, setForgotEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [touched, setTouched] = useState({ login: false, username: false, email: false, password: false });
   const [serverError, setServerError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Handle ?verify=TOKEN in the URL on load
+  // Handle ?verify=TOKEN and ?reset=TOKEN in the URL on load
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const token = params.get("verify");
-    if (!token) return;
-
-    // Strip the token from the URL without reloading
     window.history.replaceState({}, "", window.location.pathname);
 
-    verifyEmail(token)
-      .then((res) => {
-        setVerifiedUsername(res.username);
-        setStage("verified");
-      })
-      .catch(() => setStage("verify-error"));
+    const verifyToken = params.get("verify");
+    if (verifyToken) {
+      verifyEmail(verifyToken)
+        .then((res) => { setVerifiedUsername(res.username); setStage("verified"); })
+        .catch(() => setStage("verify-error"));
+      return;
+    }
+
+    const rToken = params.get("reset");
+    if (rToken) {
+      setResetToken(rToken);
+      setStage("reset");
+    }
   }, []);
 
   const errors = {
@@ -90,6 +96,155 @@ export default function AuthPage() {
     setStage("form");
     setServerError("");
     setTouched({ login: false, username: false, email: false, password: false });
+  }
+
+  async function handleForgot(e: { preventDefault(): void }) {
+    e.preventDefault();
+    setLoading(true);
+    setServerError("");
+    try {
+      await forgotPassword(forgotEmail.trim());
+      setStage("forgot-sent");
+    } catch (err) {
+      setServerError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleReset(e: { preventDefault(): void }) {
+    e.preventDefault();
+    const err = validatePassword(newPassword);
+    if (err) { setServerError(err); return; }
+    setLoading(true);
+    setServerError("");
+    try {
+      await resetPassword(resetToken, newPassword);
+      setStage("reset-done");
+    } catch (err) {
+      setStage("reset-error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ── Forgot password form ─────────────────────────────────────────────────
+  if (stage === "forgot") {
+    return (
+      <div className="auth-page">
+        <div className="auth-card">
+          <h1 className="logo" style={{ marginBottom: 4 }}>UI Copilot</h1>
+          <p className="tagline" style={{ marginBottom: 28 }}>Reset your password</p>
+          <form onSubmit={handleForgot} className="form-body">
+            <div className="field-group">
+              <input
+                className="input"
+                type="email"
+                placeholder="Your email address"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                autoComplete="email"
+                required
+              />
+            </div>
+            {serverError && <div className="error-banner">{serverError}</div>}
+            <button type="submit" className="btn-primary" disabled={loading}>
+              {loading ? "…" : "Send reset link"}
+            </button>
+            <button type="button" className="btn-ghost" style={{ marginTop: 8 }} onClick={() => { setStage("form"); setServerError(""); }}>
+              Back to sign in
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Forgot password sent ──────────────────────────────────────────────────
+  if (stage === "forgot-sent") {
+    return (
+      <div className="auth-page">
+        <div className="auth-card">
+          <h1 className="logo" style={{ marginBottom: 4 }}>UI Copilot</h1>
+          <div className="verify-success">
+            <div className="verify-icon pending">⏳</div>
+            <h2>Check the server terminal</h2>
+            <p>A password reset link was printed to the backend terminal.<br />Open that link to set a new password.</p>
+            <button className="btn-primary" onClick={() => { setStage("form"); setMode("signin"); }}>
+              Back to sign in
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Reset password form (arrived via ?reset=TOKEN) ────────────────────────
+  if (stage === "reset") {
+    return (
+      <div className="auth-page">
+        <div className="auth-card">
+          <h1 className="logo" style={{ marginBottom: 4 }}>UI Copilot</h1>
+          <p className="tagline" style={{ marginBottom: 28 }}>Choose a new password</p>
+          <form onSubmit={handleReset} className="form-body">
+            <div className="field-group">
+              <input
+                className="input"
+                type="password"
+                placeholder="New password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                autoComplete="new-password"
+                required
+              />
+              <span className="field-hint">4–20 characters, at least one letter and one number.</span>
+            </div>
+            {serverError && <div className="error-banner">{serverError}</div>}
+            <button type="submit" className="btn-primary" disabled={loading}>
+              {loading ? "…" : "Set new password"}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Reset success ─────────────────────────────────────────────────────────
+  if (stage === "reset-done") {
+    return (
+      <div className="auth-page">
+        <div className="auth-card">
+          <h1 className="logo" style={{ marginBottom: 4 }}>UI Copilot</h1>
+          <div className="verify-success">
+            <div className="verify-icon">✓</div>
+            <h2>Password updated!</h2>
+            <p>Your password has been changed. You can now sign in.</p>
+            <button className="btn-primary" onClick={() => { setStage("form"); setMode("signin"); }}>
+              Sign In
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Reset error (bad/expired token) ──────────────────────────────────────
+  if (stage === "reset-error") {
+    return (
+      <div className="auth-page">
+        <div className="auth-card">
+          <h1 className="logo" style={{ marginBottom: 4 }}>UI Copilot</h1>
+          <div className="verify-success">
+            <div className="verify-icon error">✗</div>
+            <h2>Link expired</h2>
+            <p>This reset link is invalid or has expired (links last 1 hour).</p>
+            <button className="btn-primary" onClick={() => { setStage("forgot"); setServerError(""); }}>
+              Request a new link
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // ── Verified success state ────────────────────────────────────────────────
@@ -232,6 +387,17 @@ export default function AuthPage() {
           <button type="submit" className="btn-primary" disabled={loading}>
             {loading ? "…" : mode === "signin" ? "Sign In" : "Create Account"}
           </button>
+
+          {mode === "signin" && (
+            <button
+              type="button"
+              className="btn-ghost"
+              style={{ marginTop: 4, fontSize: "0.8rem" }}
+              onClick={() => { setStage("forgot"); setServerError(""); }}
+            >
+              Forgot password?
+            </button>
+          )}
         </form>
       </div>
     </div>
